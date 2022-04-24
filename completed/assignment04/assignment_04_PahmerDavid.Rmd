@@ -1,0 +1,142 @@
+---
+title: "ASSIGNMENT 04"
+author: "David Pahmer"
+date: '2022-04-24'
+output:
+  word_document: default
+  html_document: default
+  pdf_document: default
+bibliography: bibliography.bib
+---
+
+# Assignment 4 - Instructions
+
+## Tasks
+
+### YAML Metadata
+
+-   [ ] Update the YAML metadata in the template to include your name and the current date.
+
+
+
+# Markdown Basics
+
+```{r, include=FALSE}
+setwd("C:/users/pahme/onedrive/documents/github/dsc520") 
+
+```
+
+## Favorite Foods
+
+1.  Scalloped potatoes\
+2.  Milk chocolate rum balls\
+3.  Anise flavored oatmeal\
+
+## Images
+
+{!["All Cases (Log Plot)"](.\plots\10-all-cases-log.png)}
+
+## Add a Quote
+
+> In an argument with your spouse, the first one to say "I'm sorry, you're right" wins!
+
+## Add an Equation
+
+$$ y=\frac{2\sqrt{x}}{3x} $$
+
+## Add a Footnote
+
+For footnote, see below.[^1]
+
+[^1]: This is a footnote
+
+## Add Citations
+
+-   R for Everyone[@lander2014r]\
+-   Discovering Statistics Using R[@field2012discovering]\
+
+# Inline Code
+
+```{r, loadfiles, include=FALSE}
+
+library(ggplot2) 
+setwd("C:/users/pahme/onedrive/documents/github/dsc520")
+
+heights_df <- read.csv("data/r4ds/heights.csv") 
+covid_df <- read.csv("data/nytimes/covid-19-data/us-states.csv") 
+covid_df$date <- as.Date(covid_df$date)
+
+california_df <- covid_df[ which( covid_df$state == "California"), ] 
+ny_df <- covid_df[ which( covid_df$state == "New York"), ] 
+florida_df <- covid_df[ which( covid_df$state == "Florida"), ]
+
+```
+
+## NY Times COVID-19 Data
+
+```{r echo=FALSE}
+
+# <<loadfiles>>
+
+ggplot(data=florida_df, aes(x=date, group=1)) +
+  geom_line(aes(y = cases, colour = "Florida")) +
+  geom_line(data=ny_df, aes(y = cases,colour="New York")) +
+  geom_line(data=california_df, aes(y = cases, colour="California")) +
+  scale_colour_manual("",
+                      breaks = c("Florida", "New York", "California"),
+                      values = c("darkred", "darkgreen", "steelblue")) +
+  xlab(" ") + ylab("Cases") + 
+  scale_y_log10()
+
+```
+
+## R4DS Height vs Earnings
+
+```{r echo=FALSE}
+ggplot(heights_df, aes(x=height, y=earn, col=sex)) + geom_point() + ggtitle("Earnings vs. Height") + 
+  xlab("Height (inches)") + ylab("Earnings (Dollars)")
+
+```
+
+# Tables
+
+## Knitr Table with Kable
+
+```{r, echo=FALSE}
+library(knitr)
+
+name <- c("Aragon", "Bilbo", "Frodo", "Galadriel", "Sam", "Gandalf", "Legolas", "Sauron", "Gollum")
+race <- c("Men", "Hobbit", "Hobbit", "Elf", "Hobbit", "Maia", "Elf", "Maia", "Hobbit")
+in_fellowship <- c(TRUE, FALSE, TRUE, FALSE, TRUE, TRUE, TRUE, FALSE, FALSE)
+ring_bearer <- c(FALSE, TRUE, TRUE, FALSE, TRUE, TRUE, FALSE, TRUE, TRUE)
+age <- c(88, 129, 51, 7000, 36, 2019, 2931, 7052, 589)
+
+characters_df <- data.frame(name, race, in_fellowship, ring_bearer, age)
+kable(characters_df, caption='One Ring to Rule Them All')
+
+```
+
+## Pandoc Table
+
+```{r}
+library(pander)
+short_table <- characters_df[c(1:3,5,8),]
+row.names(short_table) <- NULL
+pandoc.table(short_table, style='grid')
+
+```
+
+### Word and PDF Output
+
+-   [ ] Generate Word and PDF output
+
+RStudio should add the following to your YAML metadata
+
+``` yaml
+output:
+  pdf_document: default
+  html_document: default
+  word_document: default
+```
+# References
+
