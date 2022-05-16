@@ -1,0 +1,265 @@
+---
+title: "Assignment 08 Part 2- Regressions"
+author: "David Pahmer"
+date: '2022-05-15'
+output: pdf_document
+editor_options: 
+  markdown: 
+    wrap: 72
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+### Using your skills in statistical correlation, multiple regression, and R programming, you are interested in the following variables: Sale Price and several other possible predictors.
+
+```{r}
+library(readxl)
+library(plyr)
+library(dplyr)
+
+setwd("C:/users/pahme/onedrive/documents/github/dsc520")
+housingdf <- read_xlsx("data/week-7-housing.xlsx")
+
+```
+
+#### Explain any transformations or modifications you made to the dataset
+
+After examining the various fields, selecting those that I thought
+relevant, I modified them as follows:\
+
+-   consolidate the bathrooms into one variable\
+-   rename the sale date variable to sale_date (avoids problems)\
+-   same for sale price\
+-   make a latest build variable that takes the later of renovation or
+    build year\
+-   extract the sale year from sale date to aggregate the sales into
+    bins of a year\
+
+```{r}
+housingdf$all_bathrooms <- housingdf$bath_full_count+housingdf$bath_3qtr_count+
+  housingdf$bath_half_count/2
+
+names(housingdf)[names(housingdf)=='Sale Date'] <- 'sale_date'
+names(housingdf)[names(housingdf)=='Sale Price'] <- 'sale_price'
+
+housingdf$last_build <- housingdf$year_built
+housingdf$last_build[housingdf$year_renovated > 0] <- 
+  housingdf$year_renovated[housingdf$year_renovated > 0]
+
+housingdf$sale_year <- format(as.Date(housingdf$sale_date, 
+                                      format="%d%m%Y"), "%Y")
+housingdf$sale_year <- strtoi(housingdf$sale_year) # because we want it as a number not a string
+
+```
+
+#### Create two variables; one that will contain the variables Sale Price and Square Foot of Lot (same variables used from previous assignment on simple regression) and one that will contain Sale Price and several additional predictors of your choice. Explain the basis for your additional predictor selections.  \
+
+It seems that in addition to the property size, the sale price ought to
+depend on the year sold, as housing prices change over time even without
+any actual change to the property. Since the dataset doesn't have a
+field with year sold, I made one from the sale date, and not as a factor
+variable but as a number. Likewise, number of bedrooms and bathrooms
+would affect price, although there is no field for bathrooms, so I
+needed to create one to capture the bathroom value in one field.
+Furthermore, the size of the building itself ought to be a factor.
+Finally, the year that the house was built or renovated should possibly
+be relevant. If I understood the building grade, sale reason, sale
+warning, property type, current use codes- those might be important, but
+I didn't.
+
+```{r}
+simple_reg <- lm(sale_price ~ sq_ft_lot, data=housingdf)
+multi_reg <- lm(sale_price ~ sq_ft_lot + square_feet_total_living + sale_year + bedrooms + all_bathrooms, data=housingdf)
+
+```
+
+#### Execute a summary() function on two variables defined in the previous step to compare the model results. What are the R2 and Adjusted R2 statistics? Explain what these results tell you about the overall model. Did the inclusion of the additional predictors help explain any large variations found in Sale Price?
+
+```{r}
+
+summary(simple_reg)
+summary(multi_reg)
+```
+
+The R-squared for the simple regression showed .014, implying a
+correlation of 0.12 which is pretty low, although the F value is much
+larger than 1 with a sufficiently low p-value to imply that the result
+is statistically significant.\
+However, the multiple regression, using the additional variables, gives
+an R-squared of .21, implying a correlation of 0.46, which is much
+better, and an F value over three times the first one, also with p \<
+.001.\
+This indicates that the additional variables included in our model
+improved the model, so we can better predict the sale price from these
+factors.
+
+#### Considering the parameters of the multiple regression model you have created. What are the standardized betas for each parameter and what do the values indicate?
+
+```{r}
+
+library(lm.beta) 
+lm.beta(multi_reg)
+```
+
+The standardized betas provide each variable's coefficient adjusted to
+the same scale for purposes of comparing the predictive effects of each
+relative to the others. So, we can rank the variables in order of
+contribution toward the result:\
+
+1.  Sq ft Total Living (.469)\
+2.  bedrooms (-.059)\
+3.  sale year (.042)\
+4.  bathrooms (0.22)\
+5.  sq ft lot (.01)\
+
+#### Calculate the confidence intervals for the parameters in your model and explain what the results indicate.
+
+```{r}
+
+confint(multi_reg)
+```
+
+Looking at the confidence interval for each variable, we can see that
+for both sq ft lot and bathrooms the interval crosses 0, indicating that
+these are poor predictors of sale price (which was somewhat known from
+above), and that sale year seems to be uniformly positively correlated,
+but with a wide range so there is great variability. Number of bedrooms
+seems to be a better predictor with a smaller interval and all positive,
+while the strongest predictor is clearly total living sq ft, with the
+smallest interval. This was already indicated above.\
+
+#### Assess the improvement of the new model compared to your original model (simple regression model) by testing whether this change is significant by performing an analysis of variance.
+
+```{r}
+
+anova(simple_reg, multi_reg)
+
+```
+
+As suspected, the ANOVA shows a marked improvement in the multiple
+regression over the simple regression (especially since we see that the
+sq ft total variable is a relatively lousy predictor) with a very low
+p-value (\<.001). Additionally, the large F-value ought to indicate
+something about the improvement in the model but I don't know what.\
+
+#### Perform casewise diagnostics to identify outliers and/or influential cases, storing each function's output in a dataframe assigned to a unique variable name.
+
+```{r}
+
+resid <- data.frame(resid(multi_reg))
+```
+
+There are several other casewise diagnostic tools, but we will get to
+those soon.\
+
+#### Calculate the standardized residuals using the appropriate command, specifying those that are +-2, storing the results of large residuals in a variable you create.
+
+```{r}
+
+stand.resid <- data.frame(rstandard(multi_reg)) 
+large.stresid <-  stand.resid > 2 | stand.resid < -2
+```
+
+We now have standardized residuals, with large ones identified. For this
+purpose we are setting the cutoff for a large residual at ±2\
+
+#### Use the appropriate function to show the sum of large residuals.
+
+```{r}
+sum(large.stresid)
+```
+
+Just to check, we expect the number of outliers to be about 5% of the
+observations, so let's check the percentage of outliers:  \
+
+```{r}
+sum(large.stresid)*100/nrow(stand.resid)
+```
+
+which is actually half of that, so I wonder if I should be suspicious...
+
+#### Which specific variables have large residuals (only cases that evaluate as TRUE)?  \
+
+I would have to run the simple regression on each variable individually,
+right? Otherwise I don't know how.
+
+#### Investigate further by calculating the leverage, cooks distance, and covariance ratios. Comment on all cases that are problematics.  \
+
+```{r}
+
+lev <- hatvalues(multi_reg) 
+cook <- cooks.distance(multi_reg)
+cov.ratio <- covratio(multi_reg)
+```
+\
+For this we look at three statistics: Leverage (hat values), Cook's
+distance, and covariance ratios. For the hat values, we first need the
+average leverage which is k+1 /N , so in our case that is five predictor
+variables, and 12865 observations, giving an average of .00047, so for
+undue influence we look for hat values greater than three times that, or
+.0014.\
+Counting the number of cases whose hat values are greater than that we
+have `r sum(lev > .0014)` which is similar to the number of large
+residuals.\
+To use Cook's distance, we look for values greater than 1. sum(cook \>
+1) which gives `r sum(cook > 1)` which shows none to exert undue influence on the model.\
+For the covariance ratios, we need the lower and upper bounds: Since we
+have k=5, the lower bound is 1-18/12865, which is `r 1-18/12865`, and
+the upper bound is 1+18/12865, which is `r 1+18/12865`. So we check how
+many are outliers:\
+sum(cov.ratio \< (1-18/12865) \| cov.ratio \> (1+18/12865)) , which
+gives us `r sum(cov.ratio < (1-18/12865) | cov.ratio > (1+18/12865))`  \
+
+
+#### Perform the necessary calculations to assess the assumption of independence and state if the condition is met or not.
+
+```{r}
+
+library(car)
+dwt(multi_reg)
+```
+
+Hmmm.... so it seems not. We were looking for values between 1 and 3,
+but we got .54\
+This suggests that we have not met the condition of independence, although we would have to dig in to locate the dependence...   \
+
+
+#### Perform the necessary calculations to assess the assumption of no multicollinearity and state if the condition is met or not.  \
+
+```{r}
+vif(multi_reg)
+
+1 / vif(multi_reg)
+
+mean(vif(multi_reg))
+```
+We are looking for several things here:   
+Highest VIF should be below 10. (It is.)   
+Tolerance (1/VIF) should be below 0.1. It is. (Actually, I don't understand how this is considered a separate consideration- it is identical to the first!)  
+Mean VIF should not be substantially greater than 1. (It's 1.7, so is that substantially greater than 1? Maybe.)  
+
+So it looks like we are avoiding multicolinearity.\
+
+
+#### Visually check the assumptions related to the residuals using the plot() and hist() functions. Summarize what each graph is informing you of and if any anomalies are present.  \
+
+
+```{r}
+plot(multi_reg)
+
+hist(rstudent(multi_reg))
+```
+For the Residuals scatterplot, it isn't quite like a shotgun, so it's suspicious, and possibly not homoscedastic. This does not necessarily invalidate the predictive value of the model though.  
+The Q-Q plot clearly shows very heavy tails, and it looks like a logistic curve. This might suggest that for the very low priced, or very high priced homes- the model doesn't predict well.  
+The spread - location plot shows a too-steep line, indicating a problem of heteroscedasticity, as we have already seen.  
+The residuals - leverage plot shows no observations exerting undue influence on the model, as we saw above.  
+The histogram of residuals, plotted using studentized residuals, shows either heavy-tailing, or right skew, or or maybe even a somewhat normal distribution- it's hard to say from that histogram.  \
+
+
+
+#### Overall, is this regression model unbiased? If an unbiased regression model, what does this tell us about the sample vs. the entire population model?  \
+
+Well, it might be unbiased, since our assumptions were mostly ok, but it clearly has a hard time with the extreme values. It might imply that we will not be able to reliably represent the general population, but we have a pretty large sample, so perhaps we could have confidence in the model. I suppose I would do this again after removing lot sq ft and bathrooms from the model and see what effect that would have.
+
